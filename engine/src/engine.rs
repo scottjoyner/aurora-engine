@@ -15,8 +15,9 @@ use crate::prelude::precompiles::native::{ExitToEthereum, ExitToNear};
 use crate::prelude::precompiles::Precompiles;
 use crate::prelude::{
     address_to_key, bytes_to_key, sdk, storage_to_key, u256_to_arr, vec, AccountId, Address,
-    BorshDeserialize, BorshSerialize, KeyPrefix, PromiseArgs, PromiseCreateArgs, ToString, TryFrom,
-    TryInto, Vec, Wei, ERC20_MINT_SELECTOR, H256, U256, ERC20_UNLOCK_SELECTOR, NativeErc20EngineState, NATIVE_ERC20_BRIDGE_STATE_KEY,
+    BorshDeserialize, BorshSerialize, KeyPrefix, NativeErc20EngineState, PromiseArgs,
+    PromiseCreateArgs, ToString, TryFrom, TryInto, Vec, Wei, ERC20_MINT_SELECTOR,
+    ERC20_UNLOCK_SELECTOR, H256, NATIVE_ERC20_BRIDGE_STATE_KEY, U256,
 };
 use crate::transaction::{EthTransactionKind, NormalizedEthTransaction};
 use aurora_engine_precompiles::PrecompileConstructorContext;
@@ -751,11 +752,14 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
         let contract: Address;
         let call_data: Vec<u8>;
 
-        if !factory_account_id.is_empty() && crate::prelude::format!("{}.{}", parts[0], factory_account_id) == token_str {
+        if !factory_account_id.is_empty()
+            && crate::prelude::format!("{}.{}", parts[0], factory_account_id) == token_str
+        {
             let erc20_token = Address(unwrap_res_or_finish!(
-                                            parts[0].as_bytes().try_into(), 
-                                            output_on_fail, self.io
-                                        ));
+                parts[0].as_bytes().try_into(),
+                output_on_fail,
+                self.io
+            ));
             contract = Address::from_slice(&native_erc20_state.erc20_locker_address);
             let tail = ethabi::encode(&[
                 ethabi::Token::Address(erc20_token),
@@ -991,7 +995,10 @@ pub fn compute_block_hash(chain_id: [u8; 32], block_height: u64, account_id: &[u
 }
 
 pub fn get_native_erc20_state<I: IO>(io: &I) -> Result<NativeErc20EngineState, EngineStateError> {
-    match io.read_storage(&bytes_to_key(KeyPrefix::Config, NATIVE_ERC20_BRIDGE_STATE_KEY)) {
+    match io.read_storage(&bytes_to_key(
+        KeyPrefix::Config,
+        NATIVE_ERC20_BRIDGE_STATE_KEY,
+    )) {
         None => Err(EngineStateError::NotFound),
         Some(bytes) => NativeErc20EngineState::try_from_slice(&bytes.to_vec())
             .map_err(|_| EngineStateError::DeserializationFailed),
@@ -1124,9 +1131,7 @@ pub fn deploy_erc20_locker<I: IO + Copy, E: Env, P: PromiseHandler>(
 
     let erc20_locker_contract = include_bytes!("../../etc/eth-contracts/res/EvmErc20Locker.bin");
 
-    let deploy_args = ethabi::encode(&[
-        ethabi::Token::Address(erc20_admin_address),
-    ]);
+    let deploy_args = ethabi::encode(&[ethabi::Token::Address(erc20_admin_address)]);
 
     let address = match Engine::deploy_code_with_input(
         &mut engine,
@@ -1140,7 +1145,9 @@ pub fn deploy_erc20_locker<I: IO + Copy, E: Env, P: PromiseHandler>(
         Err(e) => return Err(DeployErc20LockerError::Engine(e)),
     };
 
-    sdk::log!(crate::prelude::format!("Deployed ERC-20-locker in Aurora at: {:#?}", address).as_str());
+    sdk::log!(
+        crate::prelude::format!("Deployed ERC-20-locker in Aurora at: {:#?}", address).as_str()
+    );
     Ok(address)
 }
 

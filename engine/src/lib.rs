@@ -73,8 +73,8 @@ mod contract {
         self, CallArgs, DeployErc20TokenArgs, GetErc20FromNep141CallArgs, GetStorageAtArgs,
         InitCallArgs, IsUsedProofCallArgs, NEP141FtOnTransferArgs, NewCallArgs,
         PauseEthConnectorCallArgs, ResolveTransferCallArgs, SetContractDataCallArgs,
-        StorageDepositCallArgs, StorageWithdrawCallArgs, TransferCallCallArgs, ViewCallArgs,
-        SetErc20FactoryAccountArgs
+        SetErc20FactoryAccountArgs, StorageDepositCallArgs, StorageWithdrawCallArgs,
+        TransferCallCallArgs, ViewCallArgs,
     };
     #[cfg(feature = "evm_bully")]
     use crate::parameters::{BeginBlockArgs, BeginChainArgs};
@@ -374,7 +374,10 @@ mod contract {
         io.assert_private_call().sdk_unwrap();
         let mut state = engine::get_native_erc20_state(&io).unwrap_or_default();
 
-        if !Address::from_slice(&state.erc20_locker_address).to_string().is_empty() {
+        if !Address::from_slice(&state.erc20_locker_address)
+            .to_string()
+            .is_empty()
+        {
             sdk::panic_utf8(b"The erc20 locker already deployed");
         }
 

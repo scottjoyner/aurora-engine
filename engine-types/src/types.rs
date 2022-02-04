@@ -1,4 +1,6 @@
-use crate::{str, vec, Add, Address, Display, Div, Mul, String, Sub, Vec, U256, account_id::AccountId};
+use crate::{
+    account_id::AccountId, str, vec, Add, Address, Display, Div, Mul, String, Sub, Vec, U256,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::fmt::Formatter;

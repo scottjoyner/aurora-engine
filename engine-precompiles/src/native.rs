@@ -5,8 +5,8 @@ use crate::prelude::{
     parameters::{PromiseArgs, PromiseCreateArgs, WithdrawCallArgs},
     sdk,
     storage::{bytes_to_key, KeyPrefix},
-    vec, BorshSerialize, Cow, String, ToString, TryFrom, TryInto, Vec, H160, U256,
     types::{NativeErc20EngineState, NATIVE_ERC20_BRIDGE_STATE_KEY},
+    vec, BorshSerialize, Cow, String, ToString, TryFrom, TryInto, Vec, H160, U256,
 };
 #[cfg(all(feature = "error_refund", feature = "contract"))]
 use crate::prelude::{
@@ -24,7 +24,8 @@ use evm::{Context, ExitError};
 
 const ERR_TARGET_TOKEN_NOT_FOUND: &str = "Target token not found";
 const ERR_NATIVE_ERC20_STATE_NOT_FOUND: &str = "The native ERC20 state not found";
-const ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED: &str = "The native ERC20 state deserialization failed";
+const ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED: &str =
+    "The native ERC20 state deserialization failed";
 
 mod costs {
     use crate::prelude::types::EthGas;
@@ -227,12 +228,15 @@ fn get_nep141_from_erc20(erc20_token: &[u8]) -> AccountId {
 fn get_native_erc20_state() -> NativeErc20EngineState {
     use sdk::io::{StorageIntermediate, IO};
     let bytes = sdk::near_runtime::Runtime
-    .read_storage(&bytes_to_key(KeyPrefix::Config, NATIVE_ERC20_BRIDGE_STATE_KEY))
-    .expect(ERR_NATIVE_ERC20_STATE_NOT_FOUND);
+        .read_storage(&bytes_to_key(
+            KeyPrefix::Config,
+            NATIVE_ERC20_BRIDGE_STATE_KEY,
+        ))
+        .expect(ERR_NATIVE_ERC20_STATE_NOT_FOUND);
 
     use borsh::BorshDeserialize;
     NativeErc20EngineState::try_from_slice(&bytes.to_vec())
-    .expect(ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED)
+        .expect(ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED)
 }
 
 impl Precompile for ExitToNear {
@@ -394,7 +398,8 @@ impl Precompile for ExitToNear {
                 let caller_address = context.caller;
                 let native_erc20_state = get_native_erc20_state();
                 let factory_account = native_erc20_state.erc20_factory_account.to_string();
-                let erc20_locker_address = Address::from_slice(&native_erc20_state.erc20_locker_address);
+                let erc20_locker_address =
+                    Address::from_slice(&native_erc20_state.erc20_locker_address);
 
                 if caller_address != erc20_locker_address {
                     return Err(ExitError::Other(Cow::from(
@@ -403,19 +408,18 @@ impl Precompile for ExitToNear {
                 }
 
                 if factory_account.is_empty() {
-                    return Err(ExitError::Other(Cow::from(
-                        "ERR_INVALID_FACTORY_ACCOUNT",
-                    )));
+                    return Err(ExitError::Other(Cow::from("ERR_INVALID_FACTORY_ACCOUNT")));
                 }
- 
+
                 let erc20_address = Address::from_slice(&input[..20]);
                 input = &input[20..];
                 let amount = U256::from_big_endian(&input[..32]);
                 input = &input[32..];
 
                 if let Ok(receiver_account_id) = AccountId::try_from(input) {
-                    let nep141_address = AccountId::try_from(format!("{}.{}", erc20_address, factory_account))
-                    .expect("invalid nep141 account");
+                    let nep141_address =
+                        AccountId::try_from(format!("{}.{}", erc20_address, factory_account))
+                            .expect("invalid nep141 account");
                     (
                         nep141_address,
                         // There is no way to inject json, given the encoding of both arguments
