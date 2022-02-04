@@ -6,6 +6,7 @@ use crate::prelude::{
     sdk,
     storage::{bytes_to_key, KeyPrefix},
     vec, BorshSerialize, Cow, String, ToString, TryFrom, TryInto, Vec, H160, U256,
+    types::{NativeErc20EngineState, NATIVE_ERC20_BRIDGE_STATE_KEY},
 };
 #[cfg(all(feature = "error_refund", feature = "contract"))]
 use crate::prelude::{
@@ -22,6 +23,8 @@ use evm::backend::Log;
 use evm::{Context, ExitError};
 
 const ERR_TARGET_TOKEN_NOT_FOUND: &str = "Target token not found";
+const ERR_NATIVE_ERC20_STATE_NOT_FOUND: &str = "The native ERC20 state not found";
+const ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED: &str = "The native ERC20 state deserialization failed";
 
 mod costs {
     use crate::prelude::types::EthGas;
@@ -220,6 +223,18 @@ fn get_nep141_from_erc20(erc20_token: &[u8]) -> AccountId {
     .unwrap()
 }
 
+#[cfg(feature = "contract")]
+fn get_native_erc20_state() -> NativeErc20EngineState {
+    use sdk::io::{StorageIntermediate, IO};
+    let bytes = sdk::near_runtime::Runtime
+    .read_storage(&bytes_to_key(KeyPrefix::Config, NATIVE_ERC20_BRIDGE_STATE_KEY))
+    .expect(ERR_NATIVE_ERC20_STATE_NOT_FOUND);
+
+    use borsh::BorshDeserialize;
+    NativeErc20EngineState::try_from_slice(&bytes.to_vec())
+    .expect(ERR_NATIVE_ERC20_STATE_DESERIALIZATION_FAILED)
+}
+
 impl Precompile for ExitToNear {
     fn required_gas(_input: &[u8]) -> Result<EthGas, ExitError> {
         Ok(costs::EXIT_TO_NEAR_GAS)
@@ -274,6 +289,7 @@ impl Precompile for ExitToNear {
         // First byte of the input is a flag, selecting the behavior to be triggered:
         //      0x0 -> Eth transfer
         //      0x1 -> Erc20 transfer
+        //      0x2 -> Native erc20 transfer
         let flag = input[0];
         #[cfg(feature = "error_refund")]
         let (refund_address, mut input) = parse_input(input);
@@ -346,6 +362,68 @@ impl Precompile for ExitToNear {
                         ),
                         events::ExitToNear {
                             sender: erc20_address,
+                            erc20_address,
+                            dest: receiver_account_id.to_string(),
+                            amount,
+                        },
+                    )
+                } else {
+                    return Err(ExitError::Other(Cow::from(
+                        "ERR_INVALID_RECEIVER_ACCOUNT_ID",
+                    )));
+                }
+            }
+            0x2 => {
+                // Native ERC20 transfer
+                //
+                // This precompile branch is expected to be called from the ERC20 lock function\
+                //
+                // Input slice format:
+                //      amount (U256 big-endian bytes) - the amount that was locked
+                //      recipient_account_id (bytes) - the NEAR recipient account which will receive NEP-141 tokens
+
+                if context.apparent_value != U256::from(0) {
+                    return Err(ExitError::Other(Cow::from(
+                        "ERR_ETH_ATTACHED_FOR_ERC20_EXIT",
+                    )));
+                }
+
+                let caller_address = context.caller;
+                let native_erc20_state = get_native_erc20_state();
+                let factory_account = native_erc20_state.erc20_factory_account.to_string();
+                let erc20_locker_address = Address::from_slice(&native_erc20_state.erc20_locker_address);
+
+                if caller_address != erc20_locker_address {
+                    return Err(ExitError::Other(Cow::from(
+                        "ERR_INVALID_ERC20_LOCKER_ADDRESS",
+                    )));
+                }
+
+                if factory_account.is_empty() {
+                    return Err(ExitError::Other(Cow::from(
+                        "ERR_INVALID_FACTORY_ACCOUNT",
+                    )));
+                }
+ 
+                let erc20_address = Address::from_slice(&input[..32]);
+                input = &input[32..];
+                let amount = U256::from_big_endian(&input[..32]);
+                input = &input[32..];
+
+                if let Ok(receiver_account_id) = AccountId::try_from(input) {
+                    let nep141_address = AccountId::try_from(format!("{}.{}", erc20_address, factory_account))
+                    .expect("invalid nep141 account");
+                    (
+                        nep141_address,
+                        // There is no way to inject json, given the encoding of both arguments
+                        // as decimal and valid account id respectively.
+                        format!(
+                            r#"{{"receiver_id": "{}", "amount": "{}", "memo": null}}"#,
+                            receiver_account_id,
+                            amount.as_u128()
+                        ),
+                        events::ExitToNear {
+                            sender: context.caller,
                             erc20_address,
                             dest: receiver_account_id.to_string(),
                             amount,

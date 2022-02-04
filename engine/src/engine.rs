@@ -1,6 +1,5 @@
 use crate::parameters::{CallArgs, NEP141FtOnTransferArgs, ResultLog, SubmitResult, ViewCallArgs};
 use core::mem;
-use aurora_engine_types::types::{ERC20_UNLOCK_SELECTOR};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic, Log};
 use evm::executor;
 use evm::{Config, CreateScheme, ExitError, ExitFatal, ExitReason};
@@ -17,7 +16,7 @@ use crate::prelude::precompiles::Precompiles;
 use crate::prelude::{
     address_to_key, bytes_to_key, sdk, storage_to_key, u256_to_arr, vec, AccountId, Address,
     BorshDeserialize, BorshSerialize, KeyPrefix, PromiseArgs, PromiseCreateArgs, ToString, TryFrom,
-    TryInto, Vec, Wei, ERC20_MINT_SELECTOR, H256, U256,
+    TryInto, Vec, Wei, ERC20_MINT_SELECTOR, H256, U256, ERC20_UNLOCK_SELECTOR, NativeErc20EngineState, NATIVE_ERC20_BRIDGE_STATE_KEY,
 };
 use crate::transaction::{EthTransactionKind, NormalizedEthTransaction};
 use aurora_engine_precompiles::PrecompileConstructorContext;
@@ -745,25 +744,25 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
             (recipient, fee)
         };
 
-        let factory_account_id = get_erc20_factory_account(&self.io);
+        let native_erc20_state = get_native_erc20_state(&self.io).unwrap_or_default();
+        let factory_account_id = native_erc20_state.erc20_factory_account.to_string();
         let token_str = token.to_string();
         let parts: Vec<&str> = token_str.split(".").collect();
-        let selector: &[u8];
-        let tail: Vec<u8>;
         let contract: Address;
+        let call_data: Vec<u8>;
 
-        if factory_account_id.is_some() && format!("{}.{}", parts[0], factory_account_id.unwrap()) == token_str {
+        if !factory_account_id.is_empty() && crate::prelude::format!("{}.{}", parts[0], factory_account_id) == token_str {
             let erc20_token = Address(unwrap_res_or_finish!(
                                             parts[0].as_bytes().try_into(), 
                                             output_on_fail, self.io
                                         ));
-            contract = get_erc20_locker_address(&self.io);
-            selector = ERC20_UNLOCK_SELECTOR;
-            tail = ethabi::encode(&[
+            contract = Address::from_slice(&native_erc20_state.erc20_locker_address);
+            let tail = ethabi::encode(&[
                 ethabi::Token::Address(erc20_token),
                 ethabi::Token::Uint(args.amount.into()),
                 ethabi::Token::Address(recipient),
             ]);
+            call_data = [ERC20_UNLOCK_SELECTOR, tail.as_slice()].concat();
         } else {
             let erc20_token = Address(unwrap_res_or_finish!(
                 unwrap_res_or_finish!(
@@ -777,11 +776,12 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
                 self.io
             ));
             contract = erc20_token;
-            selector = ERC20_MINT_SELECTOR;
-            tail = ethabi::encode(&[
+            let tail = ethabi::encode(&[
                 ethabi::Token::Address(recipient),
                 ethabi::Token::Uint(args.amount.into()),
             ]);
+
+            call_data = [ERC20_MINT_SELECTOR, tail.as_slice()].concat();
         }
 
         if fee != U256::from(0) {
@@ -810,7 +810,7 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
                 erc20_admin_address,
                 contract,
                 Wei::zero(),
-                [selector, tail.as_slice()].concat(),
+                call_data,
                 u64::MAX,
                 Vec::new(), // TODO: are there values we should put here?
                 handler,
@@ -990,6 +990,21 @@ pub fn compute_block_hash(chain_id: [u8; 32], block_height: u64, account_id: &[u
     sdk::sha256(&data)
 }
 
+pub fn get_native_erc20_state<I: IO>(io: &I) -> Result<NativeErc20EngineState, EngineStateError> {
+    match io.read_storage(&bytes_to_key(KeyPrefix::Config, NATIVE_ERC20_BRIDGE_STATE_KEY)) {
+        None => Err(EngineStateError::NotFound),
+        Some(bytes) => NativeErc20EngineState::try_from_slice(&bytes.to_vec())
+            .map_err(|_| EngineStateError::DeserializationFailed),
+    }
+}
+
+pub fn set_native_erc20_state<I: IO>(io: &mut I, state: NativeErc20EngineState) {
+    io.write_storage(
+        &bytes_to_key(KeyPrefix::Config, NATIVE_ERC20_BRIDGE_STATE_KEY),
+        &state.try_to_vec().expect("ERR_SER"),
+    );
+}
+
 pub fn get_state<I: IO>(io: &I) -> Result<EngineState, EngineStateError> {
     match io.read_storage(&bytes_to_key(KeyPrefix::Config, STATE_KEY)) {
         None => Err(EngineStateError::NotFound),
@@ -1127,20 +1142,6 @@ pub fn deploy_erc20_locker<I: IO + Copy, E: Env, P: PromiseHandler>(
 
     sdk::log!(crate::prelude::format!("Deployed ERC-20-locker in Aurora at: {:#?}", address).as_str());
     Ok(address)
-}
-
-pub fn get_erc20_factory_account<I: IO>(io: &I) -> Option<AccountId> {
-    let data = io.read_storage(b"erc20_factory").map(|s| s.to_vec()); // TODO
-
-    match AccountId::try_from(data.unwrap_or_else(Vec::new)) {
-        Err(_error) => None,
-        Ok(account) => Some(account),
-    }
-}
-
-pub fn get_erc20_locker_address<I: IO>(io: &I) -> Address {
-    let data = io.read_storage(b"erc20_locker").map(|s| s.to_vec()); // TODO
-    Address::from_slice(&data.unwrap_or_else(Vec::new))
 }
 
 pub fn set_code<I: IO>(io: &mut I, address: &Address, code: &[u8]) {

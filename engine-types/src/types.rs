@@ -1,4 +1,4 @@
-use crate::{str, vec, Add, Address, Display, Div, Mul, String, Sub, Vec, U256};
+use crate::{str, vec, Add, Address, Display, Div, Mul, String, Sub, Vec, U256, account_id::AccountId};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::fmt::Formatter;
@@ -398,6 +398,18 @@ pub mod error {
             write!(f, "{}", msg)
         }
     }
+}
+
+/// Key for storing the state of the native erc20 bridge state.
+pub const NATIVE_ERC20_BRIDGE_STATE_KEY: &[u8; 7] = b"B_STATE";
+
+/// Engine internal state of native ERC20 bridge.
+#[derive(BorshSerialize, BorshDeserialize, Default, Clone)]
+pub struct NativeErc20EngineState {
+    /// Account of the erc20 factory on near to mint native erc20 tokens.
+    pub erc20_factory_account: AccountId,
+    /// Address of the erc20 locker on Aurora side.
+    pub erc20_locker_address: [u8; 20],
 }
 
 #[cfg(test)]
