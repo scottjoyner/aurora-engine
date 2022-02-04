@@ -303,7 +303,7 @@ impl Precompile for ExitToNear {
         #[cfg(feature = "error_refund")]
         let refund_on_error_target = current_account_id.clone();
 
-        let (nep141_address, args, exit_event, transfer_method) = match flag {
+        let (target_transfer_account, args, exit_event, transfer_method) = match flag {
             0x0 => {
                 // ETH transfer
                 //
@@ -397,7 +397,8 @@ impl Precompile for ExitToNear {
 
                 let caller_address = context.caller;
                 let native_erc20_state = get_native_erc20_state();
-                let factory_account = native_erc20_state.erc20_factory_account.to_string();
+                let factory_account = AccountId::new(&native_erc20_state.erc20_factory_account)
+                    .expect("ERR_INVALID_FACTORY_ACCOUNT");
                 let erc20_locker_address =
                     Address::from_slice(&native_erc20_state.erc20_locker_address);
 
@@ -407,21 +408,14 @@ impl Precompile for ExitToNear {
                     )));
                 }
 
-                if factory_account.is_empty() {
-                    return Err(ExitError::Other(Cow::from("ERR_INVALID_FACTORY_ACCOUNT")));
-                }
-
                 let erc20_address = Address::from_slice(&input[..20]);
                 input = &input[20..];
                 let amount = U256::from_big_endian(&input[..32]);
                 input = &input[32..];
 
                 if let Ok(receiver_account_id) = AccountId::try_from(input) {
-                    let nep141_address =
-                        AccountId::try_from(format!("{}.{}", erc20_address, factory_account))
-                            .expect("invalid nep141 account");
                     (
-                        nep141_address,
+                        factory_account,
                         // There is no way to inject json, given the encoding of both arguments
                         // as decimal and valid account id respectively.
                         format!(
@@ -469,7 +463,7 @@ impl Precompile for ExitToNear {
             attached_gas: costs::REFUND_ON_ERROR_GAS.into_u64(),
         };
         let transfer_promise = PromiseCreateArgs {
-            target_account_id: nep141_address,
+            target_account_id: target_transfer_account,
             method: transfer_method.to_string(),
             args: args.as_bytes().to_vec(),
             attached_balance: 1,
