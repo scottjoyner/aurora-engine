@@ -63,4 +63,5 @@ pub struct RefundCallArgs {
     pub recipient_address: EthAddress,
     pub erc20_address: Option<EthAddress>,
     pub amount: RawU256,
+    pub erc20_locker_address: Option<EthAddress>,
 }
