@@ -56,8 +56,8 @@ fn test_uniswap_exact_output() {
     test_utils::assert_gas_bound(profile.all_gas(), 126);
     let wasm_fraction = 100 * profile.wasm_gas() / profile.all_gas();
     assert!(
-        15 <= wasm_fraction && wasm_fraction <= 20,
-        "{}% is not between 15% and 20%",
+        20 <= wasm_fraction && wasm_fraction <= 30,
+        "{}% is not between 20% and 30%",
         wasm_fraction
     );
 
