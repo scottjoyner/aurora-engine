@@ -412,6 +412,13 @@ pub struct NativeErc20EngineState {
     pub erc20_locker_address: [u8; 20],
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Default, Clone)]
+pub struct NativeErc20Metadata {
+    pub name: Vec<u8>,
+    pub symbol: Vec<u8>,
+    pub decimals: Vec<u8>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

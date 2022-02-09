@@ -15,8 +15,8 @@ use crate::prelude::precompiles::native::{ExitToEthereum, ExitToNear};
 use crate::prelude::precompiles::Precompiles;
 use crate::prelude::{
     address_to_key, bytes_to_key, sdk, storage_to_key, u256_to_arr, vec, AccountId, Address,
-    BorshDeserialize, BorshSerialize, KeyPrefix, NativeErc20EngineState, PromiseArgs,
-    PromiseCreateArgs, ToString, TryFrom, TryInto, Vec, Wei, ERC20_MINT_SELECTOR,
+    BorshDeserialize, BorshSerialize, KeyPrefix, NativeErc20EngineState, NativeErc20Metadata,
+    PromiseArgs, PromiseCreateArgs, ToString, TryFrom, TryInto, Vec, Wei, ERC20_MINT_SELECTOR,
     ERC20_UNLOCK_SELECTOR, H256, NATIVE_ERC20_BRIDGE_STATE_KEY, U256,
 };
 use crate::transaction::{EthTransactionKind, NormalizedEthTransaction};
@@ -636,6 +636,46 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
         let (status, result) =
             executor.transact_call(origin, contract, value.raw(), input, gas_limit, Vec::new());
         status.into_result(result)
+    }
+
+    fn view_with_selector(
+        &self,
+        origin: Address,
+        contract_address: Address,
+        selector: &[u8],
+    ) -> Result<Vec<u8>, EngineErrorKind> {
+        let result = self.view(
+            origin,
+            contract_address,
+            Wei::zero(),
+            selector.to_vec(),
+            u64::MAX,
+        );
+
+        match result {
+            Ok(result) => match result {
+                TransactionStatus::Succeed(ret) => Ok(ret),
+                _other => Ok(Vec::new()),
+            },
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn get_erc20_metadata(&self, erc20_address: Address) -> NativeErc20Metadata {
+        let name = self
+            .view_with_selector(self.origin, erc20_address, &[6, 253, 222, 3])
+            .unwrap();
+        let symbol = self
+            .view_with_selector(self.origin, erc20_address, &[149, 216, 155, 65])
+            .unwrap();
+        let decimals = self
+            .view_with_selector(self.origin, erc20_address, &[49, 60, 229, 103])
+            .unwrap();
+        NativeErc20Metadata {
+            name,
+            symbol,
+            decimals,
+        }
     }
 
     fn relayer_key(account_id: &[u8]) -> Vec<u8> {
