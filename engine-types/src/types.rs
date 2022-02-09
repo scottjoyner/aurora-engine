@@ -409,14 +409,14 @@ pub struct NativeErc20EngineState {
     /// Account of the erc20 factory on near to mint native erc20 tokens.
     pub erc20_factory_account: String,
     /// Address of the erc20 locker on Aurora side.
-    pub erc20_locker_address: [u8; 20],
+    pub erc20_locker_address: RawAddress,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Default, Clone)]
 pub struct NativeErc20Metadata {
-    pub name: Vec<u8>,
-    pub symbol: Vec<u8>,
-    pub decimals: Vec<u8>,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
 }
 
 #[cfg(test)]

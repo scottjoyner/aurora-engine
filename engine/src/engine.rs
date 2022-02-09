@@ -672,9 +672,9 @@ impl<'env, I: IO + Copy, E: Env> Engine<'env, I, E> {
             .view_with_selector(self.origin, erc20_address, &[49, 60, 229, 103])
             .unwrap();
         NativeErc20Metadata {
-            name,
-            symbol,
-            decimals,
+            name: String::from_utf8(name).unwrap(),
+            symbol: String::from_utf8(symbol).unwrap(),
+            decimals: decimals[0],
         }
     }
 
