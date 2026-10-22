@@ -1,9 +1,19 @@
 # Aurora Engine
 
 <!-- repo-entrypoint-guide:start -->
-> **Repository context:** The documentation below is from the Aurora Engine project. For this repository's source, clone `scottjoyner/aurora-engine`; upstream build, release, and deployment links describe the original project and do not prove this checkout has been built or deployed.
->
-> **Security:** Follow the project's development/testing instructions and use an isolated environment before interacting with any blockchain network or real assets.
+## Repository guide
+
+**Repository context:** The documentation below is from the Aurora Engine project. For this repository's source, clone `scottjoyner/aurora-engine`; upstream build, release, and deployment links describe the original project and do not prove this checkout has been built or deployed.
+
+**Security:** Follow the project's development/testing instructions and use an isolated environment before interacting with any blockchain network or real assets.
+
+### Find your way
+
+- [Deployments](#deployments)
+- [Prerequisites](#prerequisites)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Usage](#usage)
 <!-- repo-entrypoint-guide:end -->
 
 
