@@ -1,5 +1,12 @@
 # Aurora Engine
 
+<!-- repo-entrypoint-guide:start -->
+> **Repository context:** The documentation below is from the Aurora Engine project. For this repository's source, clone `scottjoyner/aurora-engine`; upstream build, release, and deployment links describe the original project and do not prove this checkout has been built or deployed.
+> >
+> > **Security:** Follow the project's development/testing instructions and use an isolated environment before interacting with any blockchain network or real assets.
+<!-- repo-entrypoint-guide:end -->
+
+
 [![Project license](https://img.shields.io/badge/License-Public%20Domain-blue.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
 [![Discord](https://img.shields.io/discord/490367152054992913?label=Discord)](https://discord.gg/jNjHYUF8vw)
 [![Lints](https://github.com/aurora-is-near/aurora-engine/actions/workflows/lints.yml/badge.svg)](https://github.com/aurora-is-near/aurora-engine/actions/workflows/lints.yml)
